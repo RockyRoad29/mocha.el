@@ -125,21 +125,25 @@ If MOCHA-FILE is specified run just that file otherwise run
 MOCHA-PROJECT-TEST-DIRECTORY.
 
 IF TEST is specified run mocha with a grep for just that test."
-  (if (not (fboundp 'realgud:nodejs))
-      (message "realgud is required to debug mocha")
-    (save-some-buffers (not compilation-ask-about-save)
-                     (when (boundp 'compilation-save-buffers-predicate)
-                       compilation-save-buffers-predicate))
+  (if (fboundp 'realgud:nodejs)
+      (let ((test-command-to-run (mocha-generate-command t mocha-file test))
+            (root-dir (mocha-find-project-root))
+            (debug-command
+             (concat mocha-which-node " debug localhost:" mocha-debug-port))
+            (buf (get-buffer-create "*mocha tests: debug*")
+            )
+        (save-some-buffers (not compilation-ask-about-save)
+                           (when (boundp 'compilation-save-buffers-predicate)
+                             compilation-save-buffers-predicate))
 
-  (when (get-buffer "*mocha tests: debug*")
-    (kill-buffer "*mocha tests: debug*"))
-  (let ((test-command-to-run (mocha-generate-command t mocha-file test))
-        (root-dir (mocha-find-project-root))
-        (debug-command (concat mocha-which-node " debug localhost:" mocha-debug-port)))
-    (with-current-buffer (get-buffer-create "*mocha tests: debug*")
+    (with-current-buffer buf
       (setq default-directory root-dir)
-      (compilation-start test-command-to-run 'mocha-compilation-mode (lambda (m) (buffer-name)))
-      (realgud:nodejs debug-command)))))
+      (compilation-start test-command-to-run 'mocha-compilation-mode
+                         (lambda (m) (buffer-name)))
+      (realgud:nodejs debug-command)))
+
+  (message "realgud is required to debug mocha")
+  )))
 
 (defun mocha-run (&optional mocha-file test)
   "Run mocha in a compilation buffer.
