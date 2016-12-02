@@ -118,6 +118,11 @@ IF TEST is specified run mocha with a grep for just that test."
             target
             path)))
 
+(defcustom mocha-debug-client #'realgud:nodejs
+  "A lisp function to start the debugging client for mocha."
+  :type '(function)
+  :group 'mocha)
+
 (defun mocha-debug (&optional mocha-file test)
   "Debug mocha using realgud.
 
@@ -125,25 +130,27 @@ If MOCHA-FILE is specified run just that file otherwise run
 MOCHA-PROJECT-TEST-DIRECTORY.
 
 IF TEST is specified run mocha with a grep for just that test."
-  (if (fboundp 'realgud:nodejs)
-      (let ((test-command-to-run (mocha-generate-command t mocha-file test))
-            (root-dir (mocha-find-project-root))
-            (debug-command
-             (concat mocha-which-node " debug localhost:" mocha-debug-port))
-            (buf (get-buffer-create "*mocha tests: debug*")
-            )
-        (save-some-buffers (not compilation-ask-about-save)
-                           (when (boundp 'compilation-save-buffers-predicate)
-                             compilation-save-buffers-predicate))
+  (let ((test-command-to-run (mocha-generate-command t mocha-file test))
+        (root-dir (mocha-find-project-root))
+        (debug-command
+         (concat mocha-which-node " debug localhost:" mocha-debug-port))
+        (buf (get-buffer-create "*mocha tests: debug*"))
+        )
+    (save-some-buffers (not compilation-ask-about-save)
+                       (when (boundp 'compilation-save-buffers-predicate)
+                         compilation-save-buffers-predicate))
 
     (with-current-buffer buf
       (setq default-directory root-dir)
       (compilation-start test-command-to-run 'mocha-compilation-mode
                          (lambda (m) (buffer-name)))
-      (realgud:nodejs debug-command)))
-
-  (message "realgud is required to debug mocha")
-  )))
+      (if (and (symbolp mocha-debug-client)(fboundp mocha-debug-client))
+              (apply mocha-debug-client debug-command)
+        (message "Mocha started, but no debugging client launched. "
+                 " You may need to install and load realgud ? You can now "
+                 "use an external debugger, or call [M-x kill-compilation] . "
+                 )
+        ))))
 
 (defun mocha-run (&optional mocha-file test)
   "Run mocha in a compilation buffer.
